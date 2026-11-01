@@ -572,6 +572,7 @@
   /* 3D models */
   .mv-box model-viewer { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #000; border-radius: 12px; --poster-color: #000; }
   @media (max-width: 700px) { .mv-box model-viewer { aspect-ratio: 4 / 3; } }
+  figcaption.credit { font-style: italic; font-size: 14px; text-align: right; margin-top: 6px; }
   .lead-in { margin: 0 0 10px; font-size: 18px; font-weight: 700; }
   .mv-hint { margin: 14px 0 0; font-size: 15px; color: var(--text-2); font-style: italic; }
   .printer-fig { max-width: 520px; width: 100%; justify-self: center; }
@@ -752,107 +753,97 @@
             <div class="auto-card">
               <div class="auto-row code-row">
                 <!-- A2 Opentrons Python code -->
-                <div class="media-desc drift-l"><p>I wrote this <span class="kw c-blue">Opentrons</span> protocol in <span class="kw c-blue">Python</span> for liquid deposition in a non-standard layout. For each of 35 positions on a 7 × 5 grid, the pipette picks up a fresh tip, aspirates 100 µL from a 15 mL tube, and dispenses five 20 µL drops in a 4 mm-diameter ring before discarding the tip. After deposition, the five drops merge and cover the entire target area.</p><p>I define the logic and parameters and validate the protocol in simulation before deploying it.</p></div>
+                <div class="media-desc drift-l"><p>Below is an example of an <span class="kw c-blue">Opentrons</span> protocol I wrote in <span class="kw c-blue">Python</span>, for liquid deposition in a non-standard layout. For each of 35 positions on a 7 × 5 grid, the pipette picks up a fresh tip, aspirates 100 µL from a 15 mL tube, and dispenses five 20 µL drops in a 4 mm-diameter ring before discarding the tip. After deposition, the five drops merge and cover the entire target area. A built-in simulation test at the end of the script checks every step before the protocol runs on the robot.</p><p>I define the logic and parameters and validate the protocol in simulation before deploying it.</p></div>
                 <figure class="drift-r">
                   <!-- Code block: Opentrons OT-2 protocol, syntax-highlighted -->
                   <div class="code-box">
                     <div class="code-bar"><span></span><span></span><span></span><b>ot2_ring_dispense.py</b></div>
                     <pre><code class="py"><span class="tk-kn">import</span><span class="tk-w"> </span><span class="tk-nn">os</span>
-  <span class="tk-n">os</span><span class="tk-o">.</span><span class="tk-n">environ</span><span class="tk-p">[</span><span class="tk-s2">"OT_ROBOT_TYPE"</span><span class="tk-p">]</span> <span class="tk-o">=</span> <span class="tk-s2">"OT-2"</span>
-  
-  <span class="tk-kn">import</span><span class="tk-w"> </span><span class="tk-nn">math</span>
-  <span class="tk-kn">from</span><span class="tk-w"> </span><span class="tk-nn">opentrons</span><span class="tk-w"> </span><span class="tk-kn">import</span> <span class="tk-n">protocol_api</span>
-  <span class="tk-kn">from</span><span class="tk-w"> </span><span class="tk-nn">opentrons.types</span><span class="tk-w"> </span><span class="tk-kn">import</span> <span class="tk-n">Point</span><span class="tk-p">,</span> <span class="tk-n">Location</span>
-  
-  <span class="tk-n">requirements</span> <span class="tk-o">=</span> <span class="tk-p">{</span>
-      <span class="tk-s2">"robotType"</span><span class="tk-p">:</span> <span class="tk-s2">"OT-2"</span><span class="tk-p">,</span>
-      <span class="tk-s2">"apiLevel"</span><span class="tk-p">:</span> <span class="tk-s2">"2.15"</span>
-  <span class="tk-p">}</span>
-  
-  <span class="tk-k">def</span><span class="tk-w"> </span><span class="tk-nf">run</span><span class="tk-p">(</span><span class="tk-n">protocol</span><span class="tk-p">:</span> <span class="tk-n">protocol_api</span><span class="tk-o">.</span><span class="tk-n">ProtocolContext</span><span class="tk-p">):</span>
-      <span class="tk-c1">#LOAD EQUIPMENT</span>
-      <span class="tk-c1">#Slot 1: 300uL tip box</span>
-      <span class="tk-n">tiprack</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">load_labware</span><span class="tk-p">(</span><span class="tk-s2">"opentrons_96_tiprack_300ul"</span><span class="tk-p">,</span> <span class="tk-s2">"1"</span><span class="tk-p">)</span>
-  
-      <span class="tk-c1">#Slot 2: Tube rack with liquid in the 15 mL tube at A1</span>
-      <span class="tk-n">tube_rack</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">load_labware</span><span class="tk-p">(</span><span class="tk-s2">"opentrons_10_tuberack_falcon_4x50ml_6x15ml_conical"</span><span class="tk-p">,</span> <span class="tk-s2">"2"</span><span class="tk-p">)</span>
-      <span class="tk-n">source_well</span> <span class="tk-o">=</span> <span class="tk-n">tube_rack</span><span class="tk-p">[</span><span class="tk-s2">"A1"</span><span class="tk-p">]</span>
-  
-      <span class="tk-c1"># Slot 3: Custom 7x5 grid platform (Corning plate definition used as placeholder)</span>
-      <span class="tk-n">dest_slot</span> <span class="tk-o">=</span> <span class="tk-s2">"3"</span>
-      <span class="tk-n">plate</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">load_labware</span><span class="tk-p">(</span><span class="tk-s2">"corning_96_wellplate_360ul_flat"</span><span class="tk-p">,</span> <span class="tk-n">dest_slot</span><span class="tk-p">)</span>
-      <span class="tk-n">slot_origin</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">deck</span><span class="tk-o">.</span><span class="tk-n">position_for</span><span class="tk-p">(</span><span class="tk-n">dest_slot</span><span class="tk-p">)</span><span class="tk-o">.</span><span class="tk-n">point</span>
-  
-      <span class="tk-c1"># Gen2 single-channel 300 uL pipette</span>
-      <span class="tk-n">pipette</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">load_instrument</span><span class="tk-p">(</span><span class="tk-s2">"p300_single_gen2"</span><span class="tk-p">,</span> <span class="tk-s2">"left"</span><span class="tk-p">,</span> <span class="tk-n">tip_racks</span><span class="tk-o">=</span><span class="tk-p">[</span><span class="tk-n">tiprack</span><span class="tk-p">])</span>
-  
-      <span class="tk-c1">#GRID GEOMETRY</span>
-      <span class="tk-n">NUM_COLUMNS</span> <span class="tk-o">=</span> <span class="tk-mi">7</span>
-      <span class="tk-n">NUM_ROWS</span> <span class="tk-o">=</span> <span class="tk-mi">5</span>
-      <span class="tk-n">SPACING_MM</span> <span class="tk-o">=</span> <span class="tk-mf">9.0</span>            
-      <span class="tk-n">DISPENSE_HEIGHT_MM</span> <span class="tk-o">=</span> <span class="tk-mf">7.0</span>     
-  
-      <span class="tk-c1"># OT-2 slot size</span>
-      <span class="tk-n">SLOT_W</span><span class="tk-p">,</span> <span class="tk-n">SLOT_H</span> <span class="tk-o">=</span> <span class="tk-mf">128.0</span><span class="tk-p">,</span> <span class="tk-mf">86.0</span>
-  
-      <span class="tk-c1"># Center the grid in the slot; row A is at the back of the slot</span>
-      <span class="tk-n">FIRST_WELL_X_OFFSET</span> <span class="tk-o">=</span> <span class="tk-p">(</span><span class="tk-n">SLOT_W</span> <span class="tk-o">-</span> <span class="tk-p">(</span><span class="tk-n">NUM_COLUMNS</span> <span class="tk-o">-</span> <span class="tk-mi">1</span><span class="tk-p">)</span> <span class="tk-o">*</span> <span class="tk-n">SPACING_MM</span><span class="tk-p">)</span> <span class="tk-o">/</span> <span class="tk-mi">2</span>   <span class="tk-c1"># 37mm</span>
-      <span class="tk-n">FIRST_WELL_Y_OFFSET</span> <span class="tk-o">=</span> <span class="tk-p">(</span><span class="tk-n">SLOT_H</span> <span class="tk-o">+</span> <span class="tk-p">(</span><span class="tk-n">NUM_ROWS</span> <span class="tk-o">-</span> <span class="tk-mi">1</span><span class="tk-p">)</span> <span class="tk-o">*</span> <span class="tk-n">SPACING_MM</span><span class="tk-p">)</span> <span class="tk-o">/</span> <span class="tk-mi">2</span>      <span class="tk-c1"># 61mm</span>
-  
-      <span class="tk-c1">#Ring of drops at each spot</span>
-      <span class="tk-n">RADIUS_MM</span> <span class="tk-o">=</span> <span class="tk-mf">2.0</span>              <span class="tk-c1"># 4 mm diameter ring</span>
-      <span class="tk-n">NUM_DROPS</span> <span class="tk-o">=</span> <span class="tk-mi">5</span>                <span class="tk-c1"># 5x 20 uL = 100 uL per spot</span>
-      <span class="tk-n">DROP_VOL</span> <span class="tk-o">=</span> <span class="tk-mi">20</span>
-      <span class="tk-n">TOTAL_VOL</span> <span class="tk-o">=</span> <span class="tk-n">DROP_VOL</span> <span class="tk-o">*</span> <span class="tk-n">NUM_DROPS</span>
-  
-      <span class="tk-c1">#DISPENSE LOOP</span>
-      <span class="tk-k">for</span> <span class="tk-n">row_idx</span> <span class="tk-ow">in</span> <span class="tk-nb">range</span><span class="tk-p">(</span><span class="tk-n">NUM_ROWS</span><span class="tk-p">):</span>
-          <span class="tk-k">for</span> <span class="tk-n">col_idx</span> <span class="tk-ow">in</span> <span class="tk-nb">range</span><span class="tk-p">(</span><span class="tk-n">NUM_COLUMNS</span><span class="tk-p">):</span>
-  
-              <span class="tk-c1"># 1. Center of the current spot, measured from the slot's front left corner</span>
-              <span class="tk-n">center_x</span> <span class="tk-o">=</span> <span class="tk-n">FIRST_WELL_X_OFFSET</span> <span class="tk-o">+</span> <span class="tk-p">(</span><span class="tk-n">col_idx</span> <span class="tk-o">*</span> <span class="tk-n">SPACING_MM</span><span class="tk-p">)</span>
-              <span class="tk-n">center_y</span> <span class="tk-o">=</span> <span class="tk-n">FIRST_WELL_Y_OFFSET</span> <span class="tk-o">-</span> <span class="tk-p">(</span><span class="tk-n">row_idx</span> <span class="tk-o">*</span> <span class="tk-n">SPACING_MM</span><span class="tk-p">)</span>
-  
-              <span class="tk-c1"># 2. Fresh tip for every spot</span>
-              <span class="tk-n">pipette</span><span class="tk-o">.</span><span class="tk-n">pick_up_tip</span><span class="tk-p">()</span>
-  
-              <span class="tk-c1"># 3. Draw 100 uL from the source tube</span>
-              <span class="tk-n">pipette</span><span class="tk-o">.</span><span class="tk-n">aspirate</span><span class="tk-p">(</span><span class="tk-n">volume</span><span class="tk-o">=</span><span class="tk-n">TOTAL_VOL</span><span class="tk-p">,</span> <span class="tk-n">location</span><span class="tk-o">=</span><span class="tk-n">source_well</span><span class="tk-p">)</span>
-  
-              <span class="tk-c1"># 4. Five 20 uL drops evenly spaced around the ring</span>
-              <span class="tk-k">for</span> <span class="tk-n">drop_idx</span> <span class="tk-ow">in</span> <span class="tk-nb">range</span><span class="tk-p">(</span><span class="tk-n">NUM_DROPS</span><span class="tk-p">):</span>
-                  <span class="tk-n">angle</span> <span class="tk-o">=</span> <span class="tk-mf">2.0</span> <span class="tk-o">*</span> <span class="tk-n">math</span><span class="tk-o">.</span><span class="tk-n">pi</span> <span class="tk-o">*</span> <span class="tk-n">drop_idx</span> <span class="tk-o">/</span> <span class="tk-n">NUM_DROPS</span>
-                  <span class="tk-n">drop_x</span> <span class="tk-o">=</span> <span class="tk-n">center_x</span> <span class="tk-o">+</span> <span class="tk-n">RADIUS_MM</span> <span class="tk-o">*</span> <span class="tk-n">math</span><span class="tk-o">.</span><span class="tk-n">cos</span><span class="tk-p">(</span><span class="tk-n">angle</span><span class="tk-p">)</span>
-                  <span class="tk-n">drop_y</span> <span class="tk-o">=</span> <span class="tk-n">center_y</span> <span class="tk-o">+</span> <span class="tk-n">RADIUS_MM</span> <span class="tk-o">*</span> <span class="tk-n">math</span><span class="tk-o">.</span><span class="tk-n">sin</span><span class="tk-p">(</span><span class="tk-n">angle</span><span class="tk-p">)</span>
-  
-                  <span class="tk-n">target_location</span> <span class="tk-o">=</span> <span class="tk-n">Location</span><span class="tk-p">(</span>
-                      <span class="tk-n">slot_origin</span> <span class="tk-o">+</span> <span class="tk-n">Point</span><span class="tk-p">(</span><span class="tk-n">x</span><span class="tk-o">=</span><span class="tk-n">drop_x</span><span class="tk-p">,</span> <span class="tk-n">y</span><span class="tk-o">=</span><span class="tk-n">drop_y</span><span class="tk-p">,</span> <span class="tk-n">z</span><span class="tk-o">=</span><span class="tk-n">DISPENSE_HEIGHT_MM</span><span class="tk-p">),</span>
-                      <span class="tk-n">plate</span><span class="tk-p">,</span>
-                  <span class="tk-p">)</span>
-  
-                  <span class="tk-n">pipette</span><span class="tk-o">.</span><span class="tk-n">dispense</span><span class="tk-p">(</span><span class="tk-n">volume</span><span class="tk-o">=</span><span class="tk-n">DROP_VOL</span><span class="tk-p">,</span> <span class="tk-n">location</span><span class="tk-o">=</span><span class="tk-n">target_location</span><span class="tk-p">)</span>
-                  <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">delay</span><span class="tk-p">(</span><span class="tk-n">seconds</span><span class="tk-o">=</span><span class="tk-mf">0.3</span><span class="tk-p">)</span>   <span class="tk-c1"># pause to separate drips</span>
-  
-              <span class="tk-c1"># 5. Discard used tip</span>
-              <span class="tk-n">pipette</span><span class="tk-o">.</span><span class="tk-n">drop_tip</span><span class="tk-p">()</span>
-  
-  <span class="tk-c1">#LOCAL SIMULATION TEST</span>
-  <span class="tk-k">if</span> <span class="tk-vm">__name__</span> <span class="tk-o">==</span> <span class="tk-s2">"__main__"</span><span class="tk-p">:</span>
-      <span class="tk-kn">from</span><span class="tk-w"> </span><span class="tk-nn">opentrons</span><span class="tk-w"> </span><span class="tk-kn">import</span> <span class="tk-n">simulate</span>
-      <span class="tk-nb">print</span><span class="tk-p">(</span><span class="tk-s2">"--- Starting Custom 7x5 Circular Pattern Simulation ---"</span><span class="tk-p">)</span>
-      <span class="tk-n">ctx</span> <span class="tk-o">=</span> <span class="tk-n">simulate</span><span class="tk-o">.</span><span class="tk-n">get_protocol_api</span><span class="tk-p">(</span><span class="tk-n">version</span><span class="tk-o">=</span><span class="tk-s2">"2.15"</span><span class="tk-p">)</span>
-      <span class="tk-n">ctx</span><span class="tk-o">.</span><span class="tk-n">home</span><span class="tk-p">()</span>
-      <span class="tk-n">run</span><span class="tk-p">(</span><span class="tk-n">ctx</span><span class="tk-p">)</span>
-      <span class="tk-nb">print</span><span class="tk-p">(</span><span class="tk-s2">"</span><span class="tk-se">\n</span><span class="tk-s2">--- Summary of Executed Commands ---"</span><span class="tk-p">)</span>
-      <span class="tk-k">for</span> <span class="tk-n">command</span> <span class="tk-ow">in</span> <span class="tk-n">ctx</span><span class="tk-o">.</span><span class="tk-n">commands</span><span class="tk-p">():</span>
-          <span class="tk-nb">print</span><span class="tk-p">(</span><span class="tk-n">command</span><span class="tk-p">)</span>
-      <span class="tk-nb">print</span><span class="tk-p">(</span><span class="tk-s2">"--- End of Simulation Log ---"</span><span class="tk-p">)</span></code></pre>
+<span class="tk-n">os</span><span class="tk-o">.</span><span class="tk-n">environ</span><span class="tk-p">[</span><span class="tk-s2">"OT_ROBOT_TYPE"</span><span class="tk-p">]</span> <span class="tk-o">=</span> <span class="tk-s2">"OT-2"</span>
+
+<span class="tk-kn">import</span><span class="tk-w"> </span><span class="tk-nn">math</span>
+<span class="tk-kn">from</span><span class="tk-w"> </span><span class="tk-nn">opentrons</span><span class="tk-w"> </span><span class="tk-kn">import</span> <span class="tk-n">protocol_api</span>
+<span class="tk-kn">from</span><span class="tk-w"> </span><span class="tk-nn">opentrons.types</span><span class="tk-w"> </span><span class="tk-kn">import</span> <span class="tk-n">Point</span><span class="tk-p">,</span> <span class="tk-n">Location</span>
+
+<span class="tk-n">requirements</span> <span class="tk-o">=</span> <span class="tk-p">{</span>
+    <span class="tk-s2">"robotType"</span><span class="tk-p">:</span> <span class="tk-s2">"OT-2"</span><span class="tk-p">,</span>
+    <span class="tk-s2">"apiLevel"</span><span class="tk-p">:</span> <span class="tk-s2">"2.15"</span>
+<span class="tk-p">}</span>
+
+<span class="tk-k">def</span><span class="tk-w"> </span><span class="tk-nf">run</span><span class="tk-p">(</span><span class="tk-n">protocol</span><span class="tk-p">:</span> <span class="tk-n">protocol_api</span><span class="tk-o">.</span><span class="tk-n">ProtocolContext</span><span class="tk-p">):</span>
+    <span class="tk-c1">#LOAD EQUIPMENT</span>
+    <span class="tk-n">tiprack</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">load_labware</span><span class="tk-p">(</span><span class="tk-s2">"opentrons_96_tiprack_300ul"</span><span class="tk-p">,</span> <span class="tk-s2">"1"</span><span class="tk-p">)</span>
+    <span class="tk-n">tube_rack</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">load_labware</span><span class="tk-p">(</span><span class="tk-s2">"opentrons_10_tuberack_falcon_4x50ml_6x15ml_conical"</span><span class="tk-p">,</span> <span class="tk-s2">"2"</span><span class="tk-p">)</span>
+    <span class="tk-n">source_well</span> <span class="tk-o">=</span> <span class="tk-n">tube_rack</span><span class="tk-p">[</span><span class="tk-s2">"A1"</span><span class="tk-p">]</span>
+    <span class="tk-n">dest_slot</span> <span class="tk-o">=</span> <span class="tk-s2">"3"</span>
+    <span class="tk-n">plate</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">load_labware</span><span class="tk-p">(</span><span class="tk-s2">"corning_96_wellplate_360ul_flat"</span><span class="tk-p">,</span> <span class="tk-n">dest_slot</span><span class="tk-p">)</span>
+    <span class="tk-n">slot_origin</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">deck</span><span class="tk-o">.</span><span class="tk-n">position_for</span><span class="tk-p">(</span><span class="tk-n">dest_slot</span><span class="tk-p">)</span><span class="tk-o">.</span><span class="tk-n">point</span>
+    <span class="tk-n">pipette</span> <span class="tk-o">=</span> <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">load_instrument</span><span class="tk-p">(</span><span class="tk-s2">"p300_single_gen2"</span><span class="tk-p">,</span> <span class="tk-s2">"left"</span><span class="tk-p">,</span> <span class="tk-n">tip_racks</span><span class="tk-o">=</span><span class="tk-p">[</span><span class="tk-n">tiprack</span><span class="tk-p">])</span>
+
+    <span class="tk-n">NUM_COLUMNS</span> <span class="tk-o">=</span> <span class="tk-mi">7</span>
+    <span class="tk-n">NUM_ROWS</span> <span class="tk-o">=</span> <span class="tk-mi">5</span>
+    <span class="tk-n">SPACING_MM</span> <span class="tk-o">=</span> <span class="tk-mf">9.0</span>
+    <span class="tk-n">DISPENSE_HEIGHT_MM</span> <span class="tk-o">=</span> <span class="tk-mf">7.0</span>
+
+    <span class="tk-n">SLOT_W</span><span class="tk-p">,</span> <span class="tk-n">SLOT_H</span> <span class="tk-o">=</span> <span class="tk-mf">128.0</span><span class="tk-p">,</span> <span class="tk-mf">86.0</span>
+
+    <span class="tk-n">FIRST_WELL_X_OFFSET</span> <span class="tk-o">=</span> <span class="tk-p">(</span><span class="tk-n">SLOT_W</span> <span class="tk-o">-</span> <span class="tk-p">(</span><span class="tk-n">NUM_COLUMNS</span> <span class="tk-o">-</span> <span class="tk-mi">1</span><span class="tk-p">)</span> <span class="tk-o">*</span> <span class="tk-n">SPACING_MM</span><span class="tk-p">)</span> <span class="tk-o">/</span> <span class="tk-mi">2</span>
+    <span class="tk-n">FIRST_WELL_Y_OFFSET</span> <span class="tk-o">=</span> <span class="tk-p">(</span><span class="tk-n">SLOT_H</span> <span class="tk-o">+</span> <span class="tk-p">(</span><span class="tk-n">NUM_ROWS</span> <span class="tk-o">-</span> <span class="tk-mi">1</span><span class="tk-p">)</span> <span class="tk-o">*</span> <span class="tk-n">SPACING_MM</span><span class="tk-p">)</span> <span class="tk-o">/</span> <span class="tk-mi">2</span>
+
+
+    <span class="tk-n">RADIUS_MM</span> <span class="tk-o">=</span> <span class="tk-mf">2.0</span>
+    <span class="tk-n">NUM_DROPS</span> <span class="tk-o">=</span> <span class="tk-mi">5</span>
+    <span class="tk-n">DROP_VOL</span> <span class="tk-o">=</span> <span class="tk-mi">20</span>
+    <span class="tk-n">TOTAL_VOL</span> <span class="tk-o">=</span> <span class="tk-n">DROP_VOL</span> <span class="tk-o">*</span> <span class="tk-n">NUM_DROPS</span>
+
+    <span class="tk-c1">#DISPENSE LOOP</span>
+    <span class="tk-k">for</span> <span class="tk-n">row_idx</span> <span class="tk-ow">in</span> <span class="tk-nb">range</span><span class="tk-p">(</span><span class="tk-n">NUM_ROWS</span><span class="tk-p">):</span>
+        <span class="tk-k">for</span> <span class="tk-n">col_idx</span> <span class="tk-ow">in</span> <span class="tk-nb">range</span><span class="tk-p">(</span><span class="tk-n">NUM_COLUMNS</span><span class="tk-p">):</span>
+
+
+            <span class="tk-n">center_x</span> <span class="tk-o">=</span> <span class="tk-n">FIRST_WELL_X_OFFSET</span> <span class="tk-o">+</span> <span class="tk-p">(</span><span class="tk-n">col_idx</span> <span class="tk-o">*</span> <span class="tk-n">SPACING_MM</span><span class="tk-p">)</span>
+            <span class="tk-n">center_y</span> <span class="tk-o">=</span> <span class="tk-n">FIRST_WELL_Y_OFFSET</span> <span class="tk-o">-</span> <span class="tk-p">(</span><span class="tk-n">row_idx</span> <span class="tk-o">*</span> <span class="tk-n">SPACING_MM</span><span class="tk-p">)</span>
+
+
+            <span class="tk-n">pipette</span><span class="tk-o">.</span><span class="tk-n">pick_up_tip</span><span class="tk-p">()</span>
+
+
+            <span class="tk-n">pipette</span><span class="tk-o">.</span><span class="tk-n">aspirate</span><span class="tk-p">(</span><span class="tk-n">volume</span><span class="tk-o">=</span><span class="tk-n">TOTAL_VOL</span><span class="tk-p">,</span> <span class="tk-n">location</span><span class="tk-o">=</span><span class="tk-n">source_well</span><span class="tk-p">)</span>
+
+
+            <span class="tk-k">for</span> <span class="tk-n">drop_idx</span> <span class="tk-ow">in</span> <span class="tk-nb">range</span><span class="tk-p">(</span><span class="tk-n">NUM_DROPS</span><span class="tk-p">):</span>
+                <span class="tk-n">angle</span> <span class="tk-o">=</span> <span class="tk-mf">2.0</span> <span class="tk-o">*</span> <span class="tk-n">math</span><span class="tk-o">.</span><span class="tk-n">pi</span> <span class="tk-o">*</span> <span class="tk-n">drop_idx</span> <span class="tk-o">/</span> <span class="tk-n">NUM_DROPS</span>
+                <span class="tk-n">drop_x</span> <span class="tk-o">=</span> <span class="tk-n">center_x</span> <span class="tk-o">+</span> <span class="tk-n">RADIUS_MM</span> <span class="tk-o">*</span> <span class="tk-n">math</span><span class="tk-o">.</span><span class="tk-n">cos</span><span class="tk-p">(</span><span class="tk-n">angle</span><span class="tk-p">)</span>
+                <span class="tk-n">drop_y</span> <span class="tk-o">=</span> <span class="tk-n">center_y</span> <span class="tk-o">+</span> <span class="tk-n">RADIUS_MM</span> <span class="tk-o">*</span> <span class="tk-n">math</span><span class="tk-o">.</span><span class="tk-n">sin</span><span class="tk-p">(</span><span class="tk-n">angle</span><span class="tk-p">)</span>
+
+                <span class="tk-n">target_location</span> <span class="tk-o">=</span> <span class="tk-n">Location</span><span class="tk-p">(</span>
+                    <span class="tk-n">slot_origin</span> <span class="tk-o">+</span> <span class="tk-n">Point</span><span class="tk-p">(</span><span class="tk-n">x</span><span class="tk-o">=</span><span class="tk-n">drop_x</span><span class="tk-p">,</span> <span class="tk-n">y</span><span class="tk-o">=</span><span class="tk-n">drop_y</span><span class="tk-p">,</span> <span class="tk-n">z</span><span class="tk-o">=</span><span class="tk-n">DISPENSE_HEIGHT_MM</span><span class="tk-p">),</span>
+                    <span class="tk-n">plate</span><span class="tk-p">,</span>
+                <span class="tk-p">)</span>
+
+                <span class="tk-n">pipette</span><span class="tk-o">.</span><span class="tk-n">dispense</span><span class="tk-p">(</span><span class="tk-n">volume</span><span class="tk-o">=</span><span class="tk-n">DROP_VOL</span><span class="tk-p">,</span> <span class="tk-n">location</span><span class="tk-o">=</span><span class="tk-n">target_location</span><span class="tk-p">)</span>
+                <span class="tk-n">protocol</span><span class="tk-o">.</span><span class="tk-n">delay</span><span class="tk-p">(</span><span class="tk-n">seconds</span><span class="tk-o">=</span><span class="tk-mf">0.3</span><span class="tk-p">)</span>
+
+
+            <span class="tk-n">pipette</span><span class="tk-o">.</span><span class="tk-n">drop_tip</span><span class="tk-p">()</span>
+
+<span class="tk-c1">#LOCAL SIMULATION TEST</span>
+<span class="tk-k">if</span> <span class="tk-vm">__name__</span> <span class="tk-o">==</span> <span class="tk-s2">"__main__"</span><span class="tk-p">:</span>
+    <span class="tk-kn">from</span><span class="tk-w"> </span><span class="tk-nn">opentrons</span><span class="tk-w"> </span><span class="tk-kn">import</span> <span class="tk-n">simulate</span>
+    <span class="tk-nb">print</span><span class="tk-p">(</span><span class="tk-s2">"--- Starting Custom 7x5 Circular Pattern Simulation ---"</span><span class="tk-p">)</span>
+    <span class="tk-n">ctx</span> <span class="tk-o">=</span> <span class="tk-n">simulate</span><span class="tk-o">.</span><span class="tk-n">get_protocol_api</span><span class="tk-p">(</span><span class="tk-n">version</span><span class="tk-o">=</span><span class="tk-s2">"2.15"</span><span class="tk-p">)</span>
+    <span class="tk-n">ctx</span><span class="tk-o">.</span><span class="tk-n">home</span><span class="tk-p">()</span>
+    <span class="tk-n">run</span><span class="tk-p">(</span><span class="tk-n">ctx</span><span class="tk-p">)</span>
+    <span class="tk-nb">print</span><span class="tk-p">(</span><span class="tk-s2">"</span><span class="tk-se">\n</span><span class="tk-s2">--- Summary of Executed Commands ---"</span><span class="tk-p">)</span>
+    <span class="tk-k">for</span> <span class="tk-n">command</span> <span class="tk-ow">in</span> <span class="tk-n">ctx</span><span class="tk-o">.</span><span class="tk-n">commands</span><span class="tk-p">():</span>
+        <span class="tk-nb">print</span><span class="tk-p">(</span><span class="tk-n">command</span><span class="tk-p">)</span>
+    <span class="tk-nb">print</span><span class="tk-p">(</span><span class="tk-s2">"--- End of Simulation Log ---"</span><span class="tk-p">)</span></code></pre>
                   </div>
                 </figure>
               </div>
               <div class="auto-row">
                 <!-- A3 Opentrons code demo -->
-                <div class="media-desc drift-l"><p>Here I visualize a run of the protocol above step by step (2× speed). The <b style="color:#ff8a5c">orange dot</b> is the <span class="kw c-blue">OT-2</span> pipette: picking up tips, drawing liquid, dispensing, and discarding tips.</p></div>
+                <div class="media-desc drift-l"><p>Here I visualize a run of the protocol above step by step (20× speed). The <b style="color:#ff8a5c">orange dot</b> is the <span class="kw c-blue">OT-2</span> pipette: picking up tips, drawing liquid, dispensing, and discarding tips.</p></div>
                 <figure class="drift-r">
                   <div class="vbox" data-title="Opentrons code demo">
                     <video class="sh-vid" muted playsinline preload="none" poster="videos/opentrons-code-demo.jpg" data-src="videos/opentrons-code-demo.mp4"></video>
@@ -863,7 +854,7 @@
             <div class="auto-card">
               <div class="auto-row">
                 <!-- A4 Biosensor measurement -->
-                <div class="media-desc drift-l"><p>I work with engineers to set the design requirements for a <span class="kw c-blue">6&#8209;axis robot</span> with an integrated <span class="kw c-blue">Seyonic</span> pipetting system that deposits test samples onto biochips and acquires sensor data. I bring the purpose of each automated protocol and the specifications and limits it must meet; the engineers bring what the hardware can do, and together we design, test, and optimize the protocols. I also operate and troubleshoot the system.</p></div>
+                <div class="media-desc drift-l"><p>I worked with engineers on the design of a <span class="kw c-blue">6&#8209;axis robot</span> with an integrated <span class="kw c-blue">Seyonic</span> pipetting system that deposits test samples onto biochips and acquires sensor data. I provided the purpose of each automated assay and the specifications it needs to meet, and together we designed, tested, and optimized the automated assays. I operate the system and troubleshoot it with the engineers.</p></div>
                 <figure class="drift-r">
                   <div class="vbox" data-title="Biosensor measurement">
                     <video class="sh-vid" muted playsinline preload="none" poster="videos/biosensor-measurement.jpg" data-src="videos/biosensor-measurement.mp4"></video>
@@ -874,7 +865,7 @@
             <div class="auto-card">
               <div class="auto-row">
                 <!-- A5 Auto-imaging for QC -->
-                <div class="media-desc drift-l"><p>The same <span class="kw c-blue">6&#8209;axis robot</span>, coupled with a <span class="kw c-blue">DIC microscope</span>, moves full panels of biochips under the objective. In-house software linking the robot and the microscope camera automates image acquisition for quality control. I defined its requirements together with the engineers, and I operate and troubleshoot the system.</p></div>
+                <div class="media-desc drift-l"><p>The same <span class="kw c-blue">6&#8209;axis robot</span>, coupled with a <span class="kw c-blue">DIC microscope</span>, moves full panels of biochips under the objective. In-house software linking the robot and the microscope camera automates image acquisition for quality control. I provided specifications for the functions needed to optimize the system's operation, and I operate the system and troubleshoot it with the engineers.</p></div>
                 <figure class="drift-r">
                   <div class="vbox" data-title="Auto-imaging for biosensor QC">
                     <video class="sh-vid" muted playsinline preload="none" poster="videos/auto-imaging-qc.jpg" data-src="videos/auto-imaging-qc.mp4"></video>
@@ -896,7 +887,7 @@
             <div class="auto-card">
               <div class="auto-row">
                 <!-- A7 Marco liquid deposition -->
-                <div class="media-desc drift-l"><p>I program, operate, and troubleshoot the <span class="kw c-blue">Marco</span> system for precision deposition of electronic inks onto biochips during chip fabrication and manufacturing.</p></div>
+                <div class="media-desc drift-l"><p>I program and operate the <span class="kw c-blue">Marco</span> system for precision deposition of electronic inks onto biochips during chip fabrication and manufacturing, and troubleshoot it with the engineers.</p></div>
                 <figure class="drift-r">
                   <div class="vbox" data-title="Liquid deposition by Marco system">
                     <video class="sh-vid" muted playsinline preload="none" poster="videos/marco-deposition.jpg" data-src="videos/marco-deposition.mp4"></video>
@@ -993,7 +984,7 @@
                   </div>
                 </figure>
               </div>
-              <div class="auto-row">
+              <div class="auto-row side">
                 <!-- M3 Image QC data -->
                 <div class="media-desc drift-l"><p>Every classification is compiled into a database used to screen out defective sensors and to feed multidimensional analysis of how defects affect sensor sensitivity and yield.</p></div>
                 <figure class="drift-r">
@@ -1009,6 +1000,7 @@
                 <div class="media-desc drift-l"><p>For <span class="kw c-purple">graphene transfer</span> onto polymer substrates, I use <span class="kw c-purple">PMMA spin coating</span> of graphene-on-copper to form the support layer, and I established three in-house transfer methods that eliminate dependence on commercial vendors:</p><p><b>1. Chemical etching:</b> the copper growth foil is dissolved, leaving the PMMA-supported graphene film for transfer onto the chip. This is the most time-efficient protocol, with minimal handling of the graphene layer, preserving its integrity.</p></div>
                 <figure class="drift-r">
                   <img class="zoomable" src="images/chemical-etching.jpg" alt="Graphene transfer by chemical etching" loading="lazy">
+                  <figcaption class="credit">Image credits: Shivani Jakkal</figcaption>
                 </figure>
               </div>
               <div class="auto-row side">
@@ -1196,8 +1188,14 @@
         <span class="email-text">vhenry2303@gmail.com</span>
         <button class="email-copy" type="button" aria-label="Copy email address"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="copy-label">Copy</span></button>
       </span>
-      <a class="btn" href="https://www.linkedin.com/in/hoang-khanh-nguyen-vo-bio-auto/" target="_blank" rel="noopener">LinkedIn</a>
-      <a class="btn" href="https://drive.google.com/file/d/1SlYgcWXwjj3ftOlbzEmJvc_RY20lIaGQ/view?usp=sharing" target="_blank" rel="noopener">Resume</a>
+      <a class="btn" href="https://www.linkedin.com/in/hoang-khanh-nguyen-vo-bio-auto/" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.94v5.67H9.34V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg>
+        LinkedIn
+      </a>
+      <a class="btn primary" href="https://drive.google.com/file/d/1SlYgcWXwjj3ftOlbzEmJvc_RY20lIaGQ/view?usp=sharing" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/></svg>
+        Resume
+      </a>
     </div>
   </div>
 </section>
