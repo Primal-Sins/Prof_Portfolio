@@ -246,7 +246,14 @@
   .media-grid img { aspect-ratio: 1 / 1; object-fit: cover; }
   .yt { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;
         background: #000 center / cover no-repeat; }
-  .yt iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  /* the player is taller than its window, so YouTube's title strip (top) and logo strip (bottom) are cropped off */
+  .yt iframe { position: absolute; left: 0; top: -64px; width: 100%; height: calc(100% + 128px); border: 0;
+               pointer-events: none; transition: opacity .3s; }
+  .yt::after { content: "↻ Replay"; position: absolute; right: 12px; bottom: 12px; font-size: 14px; font-weight: 700;
+               color: #000; background: #fff; padding: 6px 12px; border-radius: 8px; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .yt.ended { cursor: pointer; }
+  .yt.ended iframe { opacity: 0; }
+  .yt.ended::after { opacity: 1; }
   .zoomable { cursor: zoom-in; }
   .panel-content.media-below { grid-template-columns: 1fr; }
   .media-below .panel-text { max-width: 900px; }
@@ -1312,15 +1319,48 @@ document.getElementById('year').textContent = new Date().getFullYear();
 
 /* ---------- YouTube embeds: autoplay muted, no loop ---------- */
 var ytWatch = (function () {
+  // Clean YouTube embeds: no play bar, title/logo strips cropped out of view, no hover controls.
+  // When a video ends, its thumbnail covers YouTube's "more videos" screen; click to play again.
+  var apiQueue = [], apiReady = false;
+  function loadAPI() {
+    if (window.YT && window.YT.Player) { apiReady = true; return; }
+    if (document.getElementById('yt-api')) return;
+    var prev = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = function () {
+      apiReady = true; if (prev) prev();
+      apiQueue.splice(0).forEach(function (fn) { fn(); });
+    };
+    var s = document.createElement('script'); s.id = 'yt-api'; s.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(s);
+  }
+  function hook(box, f) {
+    function attach() {
+      box._player = new YT.Player(f, { events: {
+        onStateChange: function (e) {
+          if (e.data === 0) box.classList.add('ended');            // finished: show the thumbnail
+          else if (e.data === 1) box.classList.remove('ended');    // playing
+        }
+      } });
+    }
+    if (apiReady && window.YT && YT.Player) attach(); else apiQueue.push(attach);
+  }
   function load(box) {
     if (box.querySelector('iframe')) return;
     var id = box.getAttribute('data-id'), f = document.createElement('iframe');
-    f.src = 'https://www.youtube-nocookie.com/embed/' + id + '?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1';
+    f.src = 'https://www.youtube.com/embed/' + id + '?autoplay=1&mute=1&playsinline=1&controls=0&disablekb=1' +
+            '&rel=0&modestbranding=1&iv_load_policy=3&fs=0&enablejsapi=1&origin=' + encodeURIComponent(location.origin);
     f.title = box.getAttribute('data-title') || 'Video';
-    f.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-    f.setAttribute('allowfullscreen', '');
+    f.allow = 'autoplay; encrypted-media; picture-in-picture';
+    f.setAttribute('tabindex', '-1');
+    box.classList.remove('ended');
     box.appendChild(f);
+    loadAPI(); hook(box, f);
   }
+  // click a finished video to play it again
+  document.addEventListener('click', function (e) {
+    var box = e.target.closest && e.target.closest('.yt.ended');
+    if (box && box._player && box._player.seekTo) { box._player.seekTo(0, true); box._player.playVideo(); box.classList.remove('ended'); }
+  });
   if (!('IntersectionObserver' in window)) return { observe: load, unobserve: function () {} };
   var io = new IntersectionObserver(function (entries) {
     entries.forEach(function (en) { if (en.isIntersecting) { load(en.target); io.unobserve(en.target); } });
